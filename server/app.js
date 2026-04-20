@@ -12,6 +12,14 @@ app.disable("x-powered-by");
 app.set("trust proxy", 1);
 app.use(securityHeaders);
 app.use(cors);
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    name: "Silent Connection API",
+    status: "ok",
+    health: "/api/health",
+  });
+});
 app.get("/api/health", (req, res) => {
   res.json({ success: true, status: "ok" });
 });
