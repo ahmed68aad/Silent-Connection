@@ -17,6 +17,7 @@ const parseAllowedOrigins = () => {
     .filter(Boolean);
 };
 
+const getAllowedOrigins = () => parseAllowedOrigins();
 const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "");
 
 const isVercelOrigin = (origin) => {
@@ -82,4 +83,4 @@ const corsDebug = (req, res) => {
   });
 };
 
-export { cors, corsDebug, securityHeaders };
+export { cors, corsDebug, getAllowedOrigins, securityHeaders };
