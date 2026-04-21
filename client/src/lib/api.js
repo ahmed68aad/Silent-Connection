@@ -1,4 +1,3 @@
-const API_BASE_URL = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
 const SESSION_STORAGE_KEY = "silent-connection-session-id";
 
 function getSessionId() {
@@ -21,16 +20,15 @@ function getSessionId() {
 }
 
 async function request(path, options = {}) {
-  const url = `${API_BASE_URL}${path}`;
+  const url = path;
   let response;
 
   try {
     response = await fetch(url, options);
   } catch (networkError) {
-    const hint = API_BASE_URL
-      ? `Could not reach API at ${API_BASE_URL}. Check CORS and backend availability.`
-      : "Missing VITE_API_URL. Set it to your backend domain and redeploy the frontend.";
-    throw new Error(hint, { cause: networkError });
+    throw new Error("Could not reach the API. Check the frontend API proxy and backend availability.", {
+      cause: networkError,
+    });
   }
 
   const data = await response.json().catch(() => ({}));
