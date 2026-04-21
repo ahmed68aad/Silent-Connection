@@ -35,6 +35,23 @@ app.get("/", (req, res) => {
 app.get("/api/health", (req, res) => {
   res.json({ success: true, status: "ok", version: apiVersion });
 });
+app.get("/api/debug/runtime", (req, res) => {
+  res.json({
+    success: true,
+    version: apiVersion,
+    nodeEnv: process.env.NODE_ENV || null,
+    hasMongoUri: Boolean(process.env.MONGO_URI),
+    hasJwtSecret: Boolean(process.env.JWT_SECRET),
+    jwtSecretLength: process.env.JWT_SECRET?.length || 0,
+    hasSmtpConfig: Boolean(
+      process.env.SMTP_HOST &&
+        process.env.SMTP_PORT &&
+        process.env.SMTP_USER &&
+        process.env.SMTP_PASS &&
+        process.env.SMTP_FROM,
+    ),
+  });
+});
 app.get("/api/cors-debug", corsDebug);
 app.use("/api", generalLimiter);
 app.use(express.json({ limit: "1mb" }));
