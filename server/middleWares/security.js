@@ -17,7 +17,29 @@ const parseAllowedOrigins = () => {
     .filter(Boolean);
 };
 
-const allowedOrigins = parseAllowedOrigins();
+const normalizeOrigin = (origin) => origin.trim().replace(/\/+$/, "");
+
+const isVercelOrigin = (origin) => {
+  try {
+    return new URL(origin).hostname.endsWith(".vercel.app");
+  } catch {
+    return false;
+  }
+};
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) {
+    return false;
+  }
+
+  const normalizedOrigin = normalizeOrigin(origin);
+  const allowedOrigins = parseAllowedOrigins();
+
+  return (
+    allowedOrigins.includes(normalizedOrigin) ||
+    (process.env.ALLOW_VERCEL_ORIGINS === "true" && isVercelOrigin(normalizedOrigin))
+  );
+};
 
 const securityHeaders = (req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -30,12 +52,14 @@ const securityHeaders = (req, res, next) => {
 const cors = (req, res, next) => {
   const origin = req.get("origin");
 
-  if (origin && allowedOrigins.includes(origin)) {
+  if (isAllowedOrigin(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
   }
 
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Session-Id");
   res.setHeader("Access-Control-Max-Age", "86400");
 
@@ -46,4 +70,16 @@ const cors = (req, res, next) => {
   return next();
 };
 
-export { cors, securityHeaders };
+const corsDebug = (req, res) => {
+  const origin = req.get("origin") || req.query.origin || "";
+
+  res.json({
+    success: true,
+    requestOrigin: origin || null,
+    allowed: isAllowedOrigin(origin),
+    allowedOrigins: parseAllowedOrigins(),
+    allowVercelOrigins: process.env.ALLOW_VERCEL_ORIGINS === "true",
+  });
+};
+
+export { cors, corsDebug, securityHeaders };
