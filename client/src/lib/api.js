@@ -25,7 +25,12 @@ async function request(path, options = {}) {
   const baseUrl =
     API_BASE_URL ||
     (typeof window !== "undefined" ? window.location.origin : "");
-  const url = path.startsWith("http") ? path : `${baseUrl}${path}`;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  const url = path.startsWith("http")
+    ? path
+    : baseUrl.endsWith("/api") && normalizedPath.startsWith("/api")
+    ? `${baseUrl}${normalizedPath.slice(4)}`
+    : `${baseUrl}${normalizedPath}`;
   let response;
 
   try {
