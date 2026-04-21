@@ -10,6 +10,7 @@ import { generalLimiter } from "./middleWares/rateLimit.js";
 import { corsDebug, securityHeaders } from "./middleWares/security.js";
 
 const app = express();
+const apiVersion = "cors-middleware-2026-04-21";
 const corsOptions = {
   origin: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -27,11 +28,12 @@ app.get("/", (req, res) => {
     success: true,
     name: "Silent Connection API",
     status: "ok",
+    version: apiVersion,
     health: "/api/health",
   });
 });
 app.get("/api/health", (req, res) => {
-  res.json({ success: true, status: "ok", version: "cors-middleware-2026-04-21" });
+  res.json({ success: true, status: "ok", version: apiVersion });
 });
 app.get("/api/cors-debug", corsDebug);
 app.use("/api", generalLimiter);
