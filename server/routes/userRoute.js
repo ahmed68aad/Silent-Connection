@@ -41,6 +41,13 @@ const sanitizeUser = (user) => ({
 });
 
 const createToken = (id) => {
+  if (!process.env.JWT_SECRET) {
+    const error = new Error("JWT_SECRET is not configured");
+    error.statusCode = 503;
+    error.publicMessage = "Authentication is not configured yet";
+    throw error;
+  }
+
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
@@ -61,11 +68,21 @@ const queueVerificationEmail = async (user) => {
   user.emailVerificationExpiresAt = expiresAt;
   await user.save();
 
-  await sendVerificationEmail({
-    to: user.email,
-    name: user.name,
-    verificationCode: code,
-  });
+  try {
+    await sendVerificationEmail({
+      to: user.email,
+      name: user.name,
+      verificationCode: code,
+    });
+  } catch (error) {
+    user.emailVerificationCodeHash = null;
+    user.emailVerificationExpiresAt = null;
+    await user.save();
+    error.statusCode = error.statusCode || 502;
+    error.publicMessage =
+      error.publicMessage || "Could not send the verification email. Check SMTP settings.";
+    throw error;
+  }
 };
 
 UserRouter.post("/register", authLimiter, async (request, response) => {
@@ -84,6 +101,22 @@ UserRouter.post("/register", authLimiter, async (request, response) => {
     // Check if the user exists
     const exist = await User.findOne({ email: normalizedEmail });
     if (exist) {
+      if (exist.emailVerified === false) {
+        if (!hasMailConfig) {
+          return response.status(503).json({
+            success: false,
+            message: "Email verification is not configured yet",
+          });
+        }
+
+        await queueVerificationEmail(exist);
+        return response.json({
+          success: true,
+          user: sanitizeUser(exist),
+          message: "Account already exists. A new verification code has been sent.",
+        });
+      }
+
       return response.status(409).json({
         success: false,
         message: "User already exists",
@@ -127,7 +160,13 @@ UserRouter.post("/register", authLimiter, async (request, response) => {
     });
 
     const user = await newUser.save();
-    await queueVerificationEmail(user);
+
+    try {
+      await queueVerificationEmail(user);
+    } catch (error) {
+      await User.deleteOne({ _id: user._id });
+      throw error;
+    }
 
     return response.json({
       success: true,
@@ -136,6 +175,13 @@ UserRouter.post("/register", authLimiter, async (request, response) => {
     });
   } catch (error) {
     console.log(error);
+
+    if (error.statusCode) {
+      return response.status(error.statusCode).json({
+        success: false,
+        message: error.publicMessage || error.message,
+      });
+    }
 
     // Send error response
     return response.status(500).json({
@@ -183,6 +229,13 @@ UserRouter.post("/login", authLimiter, async (request, response) => {
     response.json({ success: true, token, user: sanitizeUser(user) });
   } catch (error) {
     console.log(error);
+    if (error.statusCode) {
+      return response.status(error.statusCode).json({
+        success: false,
+        message: error.publicMessage || error.message,
+      });
+    }
+
     return response.status(500).json({
       success: false,
       message: "Failed to login",
@@ -283,6 +336,13 @@ UserRouter.post("/verify-email", emailLimiter, async (request, response) => {
     });
   } catch (error) {
     console.log(error);
+    if (error.statusCode) {
+      return response.status(error.statusCode).json({
+        success: false,
+        message: error.publicMessage || error.message,
+      });
+    }
+
     return response.status(500).json({
       success: false,
       message: "Failed to verify email",
