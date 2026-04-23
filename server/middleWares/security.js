@@ -2,7 +2,7 @@ const allowedOrigins = [
   process.env.CLIENT_ORIGIN,
   process.env.CLIENT_URL,
   process.env.CORS_ORIGIN,
-  "https://silent-connection-fgt3.vercel.app",
+  "https://silent-connection-64up.vercel.app",
   "http://localhost:5173",
 ].filter(Boolean);
 
