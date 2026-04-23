@@ -6,7 +6,7 @@ import CoupleRouter from "./routes/coupleRoute.js";
 import GroupRouter from "./routes/groupRoute.js";
 import { errorHandler, notFound } from "./middleWares/errorHandler.js";
 import { generalLimiter } from "./middleWares/rateLimit.js";
-import { corsDebug, securityHeaders } from "./middleWares/security.js";
+import { cors, corsDebug, securityHeaders } from "./middleWares/security.js";
 
 const app = express();
 const apiVersion = "cors-middleware-2026-04-21";
@@ -14,22 +14,7 @@ const apiVersion = "cors-middleware-2026-04-21";
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type,Authorization,X-Session-Id",
-  );
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-  next();
-});
-
+app.use(cors);
 app.use(securityHeaders);
 app.get("/", (req, res) => {
   res.json({

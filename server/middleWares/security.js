@@ -1,6 +1,8 @@
 const DEFAULT_ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "https://silent-connection-fgt3.vercel.app",
+  "https://silent-connection-fgt3-ahmadabdelhamid99-8196s-projects.vercel.app",
 ];
 
 const parseAllowedOrigins = () => {
@@ -11,10 +13,12 @@ const parseAllowedOrigins = () => {
     return DEFAULT_ALLOWED_ORIGINS;
   }
 
-  return configuredOrigins
+  const configuredAllowedOrigins = configuredOrigins
     .split(",")
     .map((origin) => origin.trim().replace(/\/+$/, ""))
     .filter(Boolean);
+
+  return [...new Set([...DEFAULT_ALLOWED_ORIGINS, ...configuredAllowedOrigins])];
 };
 
 const getAllowedOrigins = () => parseAllowedOrigins();
@@ -52,14 +56,10 @@ const securityHeaders = (req, res, next) => {
 
 const cors = (req, res, next) => {
   const origin = req.get("origin");
+  const allowedOrigin = isAllowedOrigin(origin) ? normalizeOrigin(origin) : "*";
 
-  if (isAllowedOrigin(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-  } else {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-  }
-
+  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,X-Session-Id");
   res.setHeader("Access-Control-Max-Age", "86400");
