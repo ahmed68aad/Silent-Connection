@@ -1,6 +1,5 @@
 import "dotenv/config";
 import express from "express";
-import cors from "cors";
 import PostRouter from "./routes/postRoute.js";
 import UserRouter from "./routes/userRoute.js";
 import CoupleRouter from "./routes/coupleRoute.js";
@@ -11,12 +10,6 @@ import { corsDebug, securityHeaders } from "./middleWares/security.js";
 
 const app = express();
 const apiVersion = "cors-middleware-2026-04-21";
-const corsOptions = {
-  origin: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Session-Id"],
-  optionsSuccessStatus: 204,
-};
 
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
@@ -38,8 +31,6 @@ app.use((req, res, next) => {
 });
 
 app.use(securityHeaders);
-app.use(cors(corsOptions));
-app.options(/.*/, cors(corsOptions));
 app.get("/", (req, res) => {
   res.json({
     success: true,

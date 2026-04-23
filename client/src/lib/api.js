@@ -19,10 +19,7 @@ function getSessionId() {
   return sessionId;
 }
 
-const DEFAULT_API_BASE_URL = "https://silent-connection-64up.vercel.app";
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL?.replace(/\/$/, "") ||
-  (import.meta.env.PROD ? DEFAULT_API_BASE_URL : "");
+const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
 
 async function request(path, options = {}) {
   const baseUrl =
