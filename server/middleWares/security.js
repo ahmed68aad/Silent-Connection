@@ -2,7 +2,7 @@ const allowedOrigins = [
   process.env.CLIENT_ORIGIN,
   process.env.CLIENT_URL,
   process.env.CORS_ORIGIN,
-  "https://silent-connection-64up.vercel.app",
+  "https://silent-connection-fgt3.vercel.app",
   "http://localhost:5173",
 ].filter(Boolean);
 
@@ -37,9 +37,6 @@ const corsDebug = (req, res) => {
     success: true,
     requestOrigin: req.get("origin") || null,
     allowedOrigins,
-    methods: corsOptions.methods,
-    allowedHeaders: corsOptions.allowedHeaders,
-    credentials: corsOptions.credentials,
   });
 };
 
