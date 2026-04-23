@@ -20,6 +20,23 @@ const corsOptions = {
 
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
+
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type,Authorization,X-Session-Id",
+  );
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 app.use(securityHeaders);
 app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
@@ -45,10 +62,10 @@ app.get("/api/debug/runtime", (req, res) => {
     jwtSecretLength: process.env.JWT_SECRET?.length || 0,
     hasSmtpConfig: Boolean(
       process.env.SMTP_HOST &&
-        process.env.SMTP_PORT &&
-        process.env.SMTP_USER &&
-        process.env.SMTP_PASS &&
-        process.env.SMTP_FROM,
+      process.env.SMTP_PORT &&
+      process.env.SMTP_USER &&
+      process.env.SMTP_PASS &&
+      process.env.SMTP_FROM,
     ),
   });
 });
