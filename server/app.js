@@ -1,12 +1,17 @@
 import "dotenv/config";
 import express from "express";
+import cors from "cors";
 import PostRouter from "./routes/postRoute.js";
 import UserRouter from "./routes/userRoute.js";
 import CoupleRouter from "./routes/coupleRoute.js";
 import GroupRouter from "./routes/groupRoute.js";
 import { errorHandler, notFound } from "./middleWares/errorHandler.js";
 import { generalLimiter } from "./middleWares/rateLimit.js";
-import { cors, corsDebug, securityHeaders } from "./middleWares/security.js";
+import {
+  corsDebug,
+  corsOptions,
+  securityHeaders,
+} from "./middleWares/security.js";
 
 const app = express();
 const apiVersion = "cors-middleware-2026-04-21";
@@ -14,7 +19,8 @@ const apiVersion = "cors-middleware-2026-04-21";
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
-app.use(cors);
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(securityHeaders);
 app.get("/", (req, res) => {
   res.json({
