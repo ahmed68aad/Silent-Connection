@@ -1,15 +1,10 @@
 const SESSION_STORAGE_KEY = "silent-connection-session-id";
 
 function getSessionId() {
-  if (typeof window === "undefined") {
-    return "";
-  }
+  if (typeof window === "undefined") return "";
 
   const existingSessionId = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
-
-  if (existingSessionId) {
-    return existingSessionId;
-  }
+  if (existingSessionId) return existingSessionId;
 
   const sessionId =
     window.crypto?.randomUUID?.() ||
@@ -22,25 +17,26 @@ function getSessionId() {
 const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
 
 async function request(path, options = {}) {
-  const isBrowser = typeof window !== "undefined";
-  const baseUrl =
-    isBrowser ? window.location.origin : API_BASE_URL;
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+  const baseUrl =
+    API_BASE_URL ||
+    (typeof window !== "undefined" ? window.location.origin : "");
+
   const url = path.startsWith("http")
     ? path
     : baseUrl.endsWith("/api") && normalizedPath.startsWith("/api")
       ? `${baseUrl}${normalizedPath.slice(4)}`
       : `${baseUrl}${normalizedPath}`;
+
   let response;
 
   try {
     response = await fetch(url, options);
   } catch (networkError) {
     throw new Error(
-      "Could not reach the API. Check the frontend API proxy and backend availability.",
-      {
-        cause: networkError,
-      },
+      "Could not reach the API. Check backend URL and deployment.",
+      { cause: networkError },
     );
   }
 
@@ -57,12 +53,15 @@ async function request(path, options = {}) {
 
   if (!response.ok || data.success === false) {
     const isVercelProtection =
-      response.status === 403 && /Vercel Security Checkpoint|Deployment Protection/i.test(responseText);
+      response.status === 403 &&
+      /Vercel Security Checkpoint|Deployment Protection/i.test(responseText);
+
     const error = new Error(
       isVercelProtection
-        ? "Vercel Deployment Protection is blocking the API. Disable protection for the backend project or use the production domain."
+        ? "Vercel Deployment Protection is blocking the API."
         : data.message || `API request failed with status ${response.status}`,
     );
+
     error.code = data.code;
     error.status = response.status;
     error.responseData = data;
@@ -79,6 +78,7 @@ function authHeaders(token) {
   };
 }
 
+// ===== AUTH =====
 export async function register(payload) {
   return request("/api/users/register", {
     method: "POST",
@@ -125,6 +125,7 @@ export async function updateProfileImage(token, formData) {
   });
 }
 
+// ===== COUPLES =====
 export async function getCoupleStatus(token) {
   return request("/api/couples/status", {
     headers: authHeaders(token),
@@ -149,6 +150,7 @@ export async function disconnectCouple(token) {
   });
 }
 
+// ===== GROUPS =====
 export async function getGroups(token) {
   return request("/api/groups", {
     headers: authHeaders(token),
@@ -202,19 +204,15 @@ export async function deleteGroup(token, groupId) {
   });
 }
 
+// ===== POSTS =====
 export async function getFeed(token, options = {}) {
   const params = new URLSearchParams({
     page: String(options.page || 1),
     limit: String(options.limit || 10),
   });
 
-  if (options.feedType) {
-    params.set("feedType", options.feedType);
-  }
-
-  if (options.groupId) {
-    params.set("groupId", options.groupId);
-  }
+  if (options.feedType) params.set("feedType", options.feedType);
+  if (options.groupId) params.set("groupId", options.groupId);
 
   return request(`/api/posts/feed?${params.toString()}`, {
     headers: authHeaders(token),
