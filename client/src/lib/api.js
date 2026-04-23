@@ -22,9 +22,9 @@ function getSessionId() {
 const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
 
 async function request(path, options = {}) {
+  const isBrowser = typeof window !== "undefined";
   const baseUrl =
-    API_BASE_URL ||
-    (typeof window !== "undefined" ? window.location.origin : "");
+    isBrowser ? window.location.origin : API_BASE_URL;
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = path.startsWith("http")
     ? path
