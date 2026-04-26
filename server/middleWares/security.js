@@ -1,17 +1,21 @@
 const parseOrigins = (val) => {
   if (!val) return [];
   return String(val)
-    .replace(/['"]/g, "")
+    .replace(/['"\s]/g, "") // Remove quotes and spaces
     .split(",")
     .map((origin) => origin.trim().toLowerCase().replace(/\/$/, ""))
     .filter(Boolean);
 };
 
 const getAllowedOrigins = () => {
+  const envOrigins = [
+    process.env.CLIENT_ORIGIN,
+    process.env.CLIENT_URL,
+    process.env.CORS_ORIGIN,
+  ].flatMap((val) => parseOrigins(val));
+
   return new Set([
-    ...parseOrigins(process.env.CLIENT_ORIGIN),
-    ...parseOrigins(process.env.CLIENT_URL),
-    ...parseOrigins(process.env.CORS_ORIGIN),
+    ...envOrigins,
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:5174",
@@ -19,18 +23,24 @@ const getAllowedOrigins = () => {
 };
 
 const isAllowedOrigin = (origin) => {
-  if (!origin) return true;
+  // Handle cases with no origin (mobile apps, Postman) or null origin string
+  const rawOrigin = String(origin || "").trim();
+  if (!rawOrigin || rawOrigin === "null") return true;
 
-  const normalizedOrigin = origin.trim().toLowerCase().replace(/\/$/, "");
-  if (normalizedOrigin === "null") return true;
+  const normalizedOrigin = rawOrigin.toLowerCase().replace(/\/$/, "");
 
-  const allowed = getAllowedOrigins();
   if (
-    allowed.has(normalizedOrigin) ||
+    normalizedOrigin === "http://localhost" ||
     normalizedOrigin.startsWith("http://localhost:") ||
+    normalizedOrigin === "http://127.0.0.1" ||
     normalizedOrigin.startsWith("http://127.0.0.1:") ||
     normalizedOrigin.startsWith("http://[::1]:")
   ) {
+    return true;
+  }
+
+  const allowed = getAllowedOrigins();
+  if (allowed.has(normalizedOrigin)) {
     return true;
   }
 
@@ -49,15 +59,19 @@ const isAllowedOrigin = (origin) => {
 
 const corsOptions = {
   origin: (origin, callback) => {
-    if (isAllowedOrigin(origin)) {
+    const isAllowed = isAllowedOrigin(origin);
+    if (isAllowed) {
       return callback(null, true);
     }
 
-    if (process.env.NODE_ENV === "production") {
-      console.warn(`[CORS REJECTED] Origin: "${origin}"`);
-    }
-    // Return the origin anyway in dev to stop blocking, or false in prod
-    return callback(null, process.env.NODE_ENV !== "production");
+    // This log appears in Vercel Dashboard -> Logs
+    console.warn(
+      `[CORS REJECTED] Origin: "${origin}" | Host: ${origin ? new URL(origin).hostname : "none"}`,
+    );
+
+    // Allow in non-production environments anyway
+    const shouldAllow = process.env.NODE_ENV !== "production";
+    return callback(null, shouldAllow);
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: [
@@ -71,7 +85,7 @@ const corsOptions = {
     "Access-Control-Request-Headers",
   ],
   credentials: true,
-  optionsSuccessStatus: 200,
+  optionsSuccessStatus: 200, // Some browsers prefer 200 over 204
   maxAge: 86400, // 24 hours
   preflightContinue: false,
 };
