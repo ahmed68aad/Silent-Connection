@@ -15,10 +15,10 @@ function getSessionId() {
 }
 
 async function request(path, options = {}) {
-  const apiBaseUrl = String(import.meta.env.VITE_API_URL || "").replace(
-    /\/$/,
-    "",
-  );
+  const apiBaseUrl = String(
+    import.meta.env.VITE_API_URL || "https://silent-connection-api.vercel.app",
+  ).replace(/\/$/, "");
+
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   const url = path.startsWith("http")
     ? path

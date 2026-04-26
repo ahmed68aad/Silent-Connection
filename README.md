@@ -31,6 +31,6 @@ Local full-stack app with a Vite React client and an Express API.
    npm run dev
    ```
 
-The client runs at `http://localhost:5173` and the API runs at `http://localhost:3000`.
+The client runs at `http://localhost:5173` and the API is deployed at `https://silent-connection-api.vercel.app/`.
 
 The backend uses the local MongoDB database named `silent`.

@@ -82,7 +82,9 @@ const findUserByEmail = async (email) => {
     return null;
   }
 
-  const directUser = await User.findOne({ email: normalizedEmail });
+  const directUser = await User.findOne({ email: normalizedEmail }).select(
+    "+password",
+  );
   if (directUser) {
     return directUser;
   }
@@ -92,7 +94,7 @@ const findUserByEmail = async (email) => {
       $regex: `^${escapeRegExp(normalizedEmail)}$`,
       $options: "i",
     },
-  });
+  }).select("+password");
 };
 
 const hashEmailVerificationCode = (code) =>
@@ -275,7 +277,7 @@ UserRouter.post("/login", authLimiter, async (request, response) => {
       });
     }
 
-    const token = createToken(user._id);
+    const token = createToken(user._id.toString());
 
     response.json({ success: true, token, user: sanitizeUser(user) });
   } catch (error) {
@@ -382,7 +384,7 @@ UserRouter.post("/verify-email", emailLimiter, async (request, response) => {
     user.emailVerificationExpiresAt = null;
     await user.save();
 
-    const authToken = createToken(user._id);
+    const authToken = createToken(user._id.toString());
 
     return response.json({
       success: true,
