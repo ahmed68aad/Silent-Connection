@@ -7,12 +7,12 @@ const allowedOrigins = [
   "http://localhost:5174",
 ]
   .filter(Boolean)
-  .map((origin) => origin.replace(/\/$/, ""));
+  .map((origin) => origin.trim().toLowerCase().replace(/\/$/, ""));
 
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
 
-  const normalizedOrigin = origin.replace(/\/$/, "");
+  const normalizedOrigin = origin.trim().toLowerCase().replace(/\/$/, "");
 
   if (allowedOrigins.includes(normalizedOrigin)) return true;
 
@@ -43,8 +43,8 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    console.warn("CORS blocked for origin:", origin);
-    return callback(new Error("Not allowed by CORS"));
+    console.warn(`CORS blocked for origin: ${origin}`);
+    return callback(null, false);
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: [
@@ -57,6 +57,7 @@ const corsOptions = {
   ],
   credentials: true,
   optionsSuccessStatus: 204,
+  maxAge: 86400, // 24 hours
 };
 
 const securityHeaders = (req, res, next) => {
