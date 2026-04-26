@@ -5,12 +5,18 @@ const DEFAULT_MONGO_URI = `mongodb://127.0.0.1:27017/${DATABASE_NAME}`;
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(
-      process.env.MONGO_URI || DEFAULT_MONGO_URI,
-      {
-        dbName: DATABASE_NAME,
-      },
-    );
+    const uri = process.env.MONGO_URI;
+
+    if (!uri && process.env.NODE_ENV === "production") {
+      throw new Error(
+        "MONGO_URI is missing in production. Please set it in the Vercel dashboard.",
+      );
+    }
+
+    const conn = await mongoose.connect(uri || DEFAULT_MONGO_URI, {
+      dbName: DATABASE_NAME,
+      serverSelectionTimeoutMS: 5000, // Fail fast instead of hanging
+    });
 
     console.log(
       `MongoDB Connected: ${conn.connection.host}/${conn.connection.name}`,
