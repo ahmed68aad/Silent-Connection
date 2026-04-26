@@ -18,10 +18,13 @@ const allowedOrigins = new Set([
 ]);
 
 const isAllowedOrigin = (origin) => {
-  // Handle server-to-server, Postman, or certain browser redirects (null origin)
-  if (!origin || origin === "null") return true;
+  // Allow requests with no origin (like mobile apps, curl, or Postman)
+  if (!origin) return true;
 
   const normalizedOrigin = origin.trim().toLowerCase().replace(/\/$/, "");
+
+  // Handle "null" origin sent by some browsers in specific redirect scenarios
+  if (normalizedOrigin === "null") return true;
 
   if (
     allowedOrigins.has(normalizedOrigin) ||
@@ -50,9 +53,10 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    // This log will appear in your Vercel Dashboard -> Logs
-    // It's critical to see what the 'origin' actually is if it's still failing
-    console.warn(`[CORS REJECTED] Origin: "${origin}"`);
+    // In production, log the rejection to Vercel logs for debugging
+    if (process.env.NODE_ENV === "production") {
+      console.warn(`[CORS REJECTED] Origin: "${origin}"`);
+    }
     return callback(null, false);
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],

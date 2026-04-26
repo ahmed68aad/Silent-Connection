@@ -10,6 +10,11 @@ const rateLimit = ({ windowMs, max, message }) => {
   stores.set(Symbol(message), hits);
 
   return (req, res, next) => {
+    // Skip rate limiting for preflight requests
+    if (req.method === "OPTIONS") {
+      return next();
+    }
+
     const now = Date.now();
     const key = getClientKey(req);
     const current = hits.get(key);

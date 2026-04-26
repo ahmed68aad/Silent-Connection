@@ -111,6 +111,11 @@ const createEmailVerificationCode = () => {
 };
 
 export const ensureDbConnected = async (request, response, next) => {
+  // Always allow OPTIONS requests to pass through to the CORS middleware
+  if (request.method === "OPTIONS") {
+    return next();
+  }
+
   await connectDB();
   if (mongoose.connection.readyState !== 1) {
     return response.status(503).json({
