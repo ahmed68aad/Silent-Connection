@@ -9,44 +9,42 @@ const allowedOrigins = [
   .filter(Boolean)
   .map((origin) => origin.replace(/\/$/, ""));
 
-const isLocalOrigin = (origin) => {
-  if (!origin) return false;
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+
+  const normalizedOrigin = origin.replace(/\/$/, "");
+
+  if (allowedOrigins.includes(normalizedOrigin)) return true;
+
   try {
-    const { hostname } = new URL(origin);
-    return (
-      hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1"
-    );
+    const { hostname } = new URL(normalizedOrigin);
+
+    if (
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1"
+    ) {
+      return true;
+    }
+
+    if (hostname.endsWith(".vercel.app") || hostname.endsWith(".vercel.dev")) {
+      return true;
+    }
+
+    return false;
   } catch {
     return false;
   }
 };
 
-const isVercelOrigin = (origin) => {
-  if (!origin) return false;
-  // Allows preview deployments from your Vercel project
-  return origin.endsWith(".vercel.app") || origin.endsWith(".vercel.dev");
-};
-
 const corsOptions = {
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-
-    const normalizedOrigin = origin.replace(/\/$/, "");
-
-    if (
-      allowedOrigins.includes(normalizedOrigin) ||
-      isLocalOrigin(normalizedOrigin) ||
-      isVercelOrigin(normalizedOrigin)
-    ) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
 
-    console.warn(`CORS blocked for origin: ${origin}`);
-    // On Vercel, it is often better to allow the origin but let
-    // downstream logic handle auth, or return an error that
-    // includes headers. For now, let's be more permissive to
-    // debug the underlying 500 error.
-    return callback(null, true);
+    console.warn("CORS blocked for origin:", origin);
+    return callback(new Error("Not allowed by CORS"));
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: [
@@ -58,7 +56,7 @@ const corsOptions = {
     "token",
   ],
   credentials: true,
-  optionsSuccessStatus: 200,
+  optionsSuccessStatus: 204,
 };
 
 const securityHeaders = (req, res, next) => {

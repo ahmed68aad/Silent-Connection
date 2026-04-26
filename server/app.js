@@ -20,9 +20,25 @@ const app = express();
 
 app.disable("x-powered-by");
 
+// ✅ CORS لازم يبقى أول حاجة
 app.use(cors(corsOptions));
+
+// ✅ حل مشكلة preflight (OPTIONS)
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
+// ✅ security + body parser
 app.use(securityHeaders);
+app.use(express.json({ limit: "1mb" }));
+
+// ✅ static files
 app.use("/uploads", express.static(uploadsRoot));
+
+// ✅ health routes
 app.get("/", (req, res) => {
   res.json({
     success: true,
@@ -31,6 +47,7 @@ app.get("/", (req, res) => {
     health: "/api/health",
   });
 });
+
 app.get("/api/health", (req, res) => {
   res.json({
     success: true,
@@ -39,8 +56,19 @@ app.get("/api/health", (req, res) => {
   });
 });
 
+// ✅ rate limiter
+app.use("/api", generalLimiter);
+
+// ✅ routes
+app.use("/api/posts", PostRouter);
+app.use("/api/users", UserRouter);
+app.use("/api/couples", CoupleRouter);
+app.use("/api/groups", GroupRouter);
+
+// ✅ production frontend
 if (process.env.NODE_ENV === "production") {
   const clientBuildPath = path.resolve(__dirname, "../client/dist");
+
   app.use(express.static(clientBuildPath));
 
   app.get("*", (req, res, next) => {
@@ -51,12 +79,7 @@ if (process.env.NODE_ENV === "production") {
   });
 }
 
-app.use("/api", generalLimiter);
-app.use(express.json({ limit: "1mb" }));
-app.use("/api/posts", PostRouter);
-app.use("/api/users", UserRouter);
-app.use("/api/couples", CoupleRouter);
-app.use("/api/groups", GroupRouter);
+// ✅ errors
 app.use(notFound);
 app.use(errorHandler);
 
