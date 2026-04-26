@@ -109,6 +109,22 @@ const createEmailVerificationCode = () => {
   return { code, codeHash, expiresAt };
 };
 
+const ensureDbConnected = (request, response, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    return response.status(503).json({
+      success: false,
+      message:
+        "Database connection is not ready. Please try again in a moment.",
+    });
+  }
+  next();
+};
+
+UserRouter.use(
+  ["/register", "/login", "/verify-email", "/resend-verification"],
+  ensureDbConnected,
+);
+
 const queueVerificationEmail = async (user) => {
   const { code, codeHash, expiresAt } = createEmailVerificationCode();
 
@@ -248,14 +264,6 @@ UserRouter.post("/register", authLimiter, async (request, response) => {
 UserRouter.post("/login", authLimiter, async (request, response) => {
   const { email, password } = request.body;
   try {
-    if (mongoose.connection.readyState !== 1) {
-      return response.status(503).json({
-        success: false,
-        message:
-          "Database connection is not ready. Please try again in a moment.",
-      });
-    }
-
     if (!email || !password) {
       return response.status(400).json({
         success: false,
