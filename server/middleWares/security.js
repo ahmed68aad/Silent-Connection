@@ -1,32 +1,38 @@
-const allowedOrigins = [
-  process.env.CLIENT_ORIGIN,
-  process.env.CLIENT_URL,
-  process.env.CORS_ORIGIN,
+const parseOrigins = (val) => {
+  if (!val) return [];
+  // Handle comma-separated strings from environment variables
+  return String(val)
+    .split(",")
+    .map((origin) => origin.trim().toLowerCase().replace(/\/$/, ""))
+    .filter(Boolean);
+};
+
+const allowedOrigins = new Set([
+  ...parseOrigins(process.env.CLIENT_ORIGIN),
+  ...parseOrigins(process.env.CLIENT_URL),
+  ...parseOrigins(process.env.CORS_ORIGIN),
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "http://localhost:5174",
-]
-  .filter(Boolean)
-  .map((origin) => origin.trim().toLowerCase().replace(/\/$/, ""));
+]);
 
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
 
   const normalizedOrigin = origin.trim().toLowerCase().replace(/\/$/, "");
 
-  if (allowedOrigins.includes(normalizedOrigin)) return true;
+  if (allowedOrigins.has(normalizedOrigin)) return true;
+
+  // Additional check for localhost/127.0.0.1 with any port
+  if (
+    normalizedOrigin.startsWith("http://localhost:") ||
+    normalizedOrigin.startsWith("http://127.0.0.1:")
+  ) {
+    return true;
+  }
 
   try {
     const { hostname } = new URL(normalizedOrigin);
-
-    if (
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "::1"
-    ) {
-      return true;
-    }
-
     if (hostname.endsWith(".vercel.app") || hostname.endsWith(".vercel.dev")) {
       return true;
     }
@@ -54,6 +60,8 @@ const corsOptions = {
     "Accept",
     "Origin",
     "token",
+    "X-Requested-With",
+    "Access-Control-Request-Headers",
   ],
   credentials: true,
   optionsSuccessStatus: 204,
