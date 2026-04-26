@@ -5,9 +5,13 @@ import bcrypt from "bcrypt";
 import validator from "validator";
 import auth from "../middleWares/auth.js";
 import crypto from "crypto";
-import { hasMailConfig, sendVerificationEmail } from "../config/mailer.js";
+import { hasMailConfig, sendVerificationEmail } from "../config/resend.js";
 import { profileImageUpload } from "../config/multer.js";
-import { authLimiter, emailLimiter, uploadLimiter } from "../middleWares/rateLimit.js";
+import {
+  authLimiter,
+  emailLimiter,
+  uploadLimiter,
+} from "../middleWares/rateLimit.js";
 
 const UserRouter = express.Router();
 const MAX_PROFILE_IMAGE_SIZE = 2 * 1024 * 1024;
@@ -40,6 +44,18 @@ const sanitizeUser = (user) => ({
   createdAt: user.createdAt,
 });
 
+const getProfileImageUrl = (file) => {
+  if (file.filename) return `/uploads/profiles/${file.filename}`;
+  if (file.path) return file.path;
+  if (file.buffer) {
+    return `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+  }
+
+  const error = new Error("Uploaded profile image could not be read");
+  error.statusCode = 400;
+  throw error;
+};
+
 const createToken = (id) => {
   if (!process.env.JWT_SECRET) {
     const error = new Error("JWT_SECRET is not configured");
@@ -51,7 +67,33 @@ const createToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 };
 
-const hashEmailVerificationCode = (code) => crypto.createHash("sha256").update(code).digest("hex");
+const escapeRegExp = (value) =>
+  String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const normalizeEmail = (email) => email?.trim().toLowerCase();
+
+const findUserByEmail = async (email) => {
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!normalizedEmail) {
+    return null;
+  }
+
+  const directUser = await User.findOne({ email: normalizedEmail });
+  if (directUser) {
+    return directUser;
+  }
+
+  return await User.findOne({
+    email: {
+      $regex: `^${escapeRegExp(normalizedEmail)}$`,
+      $options: "i",
+    },
+  });
+};
+
+const hashEmailVerificationCode = (code) =>
+  crypto.createHash("sha256").update(code).digest("hex");
 
 const createEmailVerificationCode = () => {
   const code = crypto.randomInt(100000, 1000000).toString();
@@ -80,7 +122,8 @@ const queueVerificationEmail = async (user) => {
     await user.save();
     error.statusCode = error.statusCode || 502;
     error.publicMessage =
-      error.publicMessage || "Could not send the verification email. Check SMTP settings.";
+      error.publicMessage ||
+      "Could not send the verification email. Check your Resend configuration.";
     throw error;
   }
 };
@@ -88,7 +131,7 @@ const queueVerificationEmail = async (user) => {
 UserRouter.post("/register", authLimiter, async (request, response) => {
   const { name, password, email } = request.body;
   try {
-    const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
     const trimmedName = name?.trim();
 
     if (!trimmedName || !normalizedEmail || !password) {
@@ -99,13 +142,14 @@ UserRouter.post("/register", authLimiter, async (request, response) => {
     }
 
     // Check if the user exists
-    const exist = await User.findOne({ email: normalizedEmail });
+    const exist = await findUserByEmail(normalizedEmail);
     if (exist) {
       if (exist.emailVerified === false) {
         if (!hasMailConfig) {
           return response.status(503).json({
             success: false,
-            message: "Email verification is not configured yet",
+            message:
+              "Email sending is not configured. Add RESEND_API_KEY and RESEND_FROM to server/.env.",
           });
         }
 
@@ -113,7 +157,8 @@ UserRouter.post("/register", authLimiter, async (request, response) => {
         return response.json({
           success: true,
           user: sanitizeUser(exist),
-          message: "Account already exists. A new verification code has been sent.",
+          message:
+            "Account already exists. A new verification code has been sent.",
         });
       }
 
@@ -142,7 +187,8 @@ UserRouter.post("/register", authLimiter, async (request, response) => {
     if (!hasMailConfig) {
       return response.status(503).json({
         success: false,
-        message: "Email verification is not configured yet",
+        message:
+          "Email sending is not configured. Add RESEND_API_KEY and RESEND_FROM to server/.env.",
       });
     }
 
@@ -157,6 +203,7 @@ UserRouter.post("/register", authLimiter, async (request, response) => {
       password: hashedPassword,
       inviteCode: await generateUniqueInviteCode(),
       emailVerified: false,
+      emailVerifiedAt: null,
     });
 
     const user = await newUser.save();
@@ -171,7 +218,8 @@ UserRouter.post("/register", authLimiter, async (request, response) => {
     return response.json({
       success: true,
       user: sanitizeUser(user),
-      message: "Account created. Enter the verification code sent to your email.",
+      message:
+        "Account created. Enter the verification code sent to your email.",
     });
   } catch (error) {
     console.log(error);
@@ -201,7 +249,7 @@ UserRouter.post("/login", authLimiter, async (request, response) => {
       });
     }
 
-    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    const user = await findUserByEmail(email);
     if (!user) {
       return response.status(404).json({
         success: false,
@@ -243,53 +291,59 @@ UserRouter.post("/login", authLimiter, async (request, response) => {
   }
 });
 
-UserRouter.post("/resend-verification", emailLimiter, async (request, response) => {
-  const { email } = request.body;
+UserRouter.post(
+  "/resend-verification",
+  emailLimiter,
+  async (request, response) => {
+    const { email } = request.body;
 
-  try {
-    const normalizedEmail = email?.trim().toLowerCase();
+    try {
+      const normalizedEmail = normalizeEmail(email);
 
-    if (!normalizedEmail || !validator.isEmail(normalizedEmail)) {
-      return response.status(400).json({
-        success: false,
-        message: "Please enter a valid email",
-      });
-    }
+      if (!normalizedEmail || !validator.isEmail(normalizedEmail)) {
+        return response.status(400).json({
+          success: false,
+          message: "Please enter a valid email",
+        });
+      }
 
-    const genericResponse = {
-      success: true,
-      message: "If this account needs verification, a new code has been sent.",
-    };
+      const genericResponse = {
+        success: true,
+        message:
+          "If this account needs verification, a new code has been sent.",
+      };
 
-    const user = await User.findOne({ email: normalizedEmail });
+      const user = await findUserByEmail(normalizedEmail);
 
-    if (!user || user.emailVerified) {
+      if (!user || user.emailVerified) {
+        return response.json(genericResponse);
+      }
+
+      if (!hasMailConfig) {
+        return response.status(503).json({
+          success: false,
+          message:
+            "Email sending is not configured. Add RESEND_API_KEY and RESEND_FROM to server/.env.",
+        });
+      }
+
+      await queueVerificationEmail(user);
       return response.json(genericResponse);
-    }
-
-    if (!hasMailConfig) {
-      return response.status(503).json({
+    } catch (error) {
+      console.log(error);
+      return response.status(500).json({
         success: false,
-        message: "Email verification is not configured yet",
+        message: "Failed to resend verification email",
       });
     }
-
-    await queueVerificationEmail(user);
-    return response.json(genericResponse);
-  } catch (error) {
-    console.log(error);
-    return response.status(500).json({
-      success: false,
-      message: "Failed to resend verification email",
-    });
-  }
-});
+  },
+);
 
 UserRouter.post("/verify-email", emailLimiter, async (request, response) => {
   const { email, code } = request.body;
 
   try {
-    const normalizedEmail = email?.trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
     const normalizedCode = String(code || "").trim();
 
     if (!normalizedEmail || !validator.isEmail(normalizedEmail)) {
@@ -308,12 +362,11 @@ UserRouter.post("/verify-email", emailLimiter, async (request, response) => {
 
     const codeHash = hashEmailVerificationCode(normalizedCode);
     const user = await User.findOne({
-      email: normalizedEmail,
       emailVerificationCodeHash: codeHash,
       emailVerificationExpiresAt: { $gt: new Date() },
     });
 
-    if (!user) {
+    if (!user || user.email.toLowerCase() !== normalizedEmail) {
       return response.status(400).json({
         success: false,
         message: "Verification code is invalid or expired",
@@ -378,9 +431,7 @@ UserRouter.post(
         });
       }
 
-      const profileImage =
-        request.file.path ||
-        `data:${request.file.mimetype};base64,${request.file.buffer.toString("base64")}`;
+      const profileImage = getProfileImageUrl(request.file);
 
       request.user.profileImage = profileImage;
       await request.user.save();

@@ -79,10 +79,20 @@ body {
   min-height: 100vh;
   color: var(--text);
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 30%, transparent), transparent 30%),
-    radial-gradient(circle at bottom right, color-mix(in srgb, var(--accent-2) 30%, transparent), transparent 35%),
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--accent) 30%, transparent),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at bottom right,
+      color-mix(in srgb, var(--accent-2) 30%, transparent),
+      transparent 35%
+    ),
     linear-gradient(148deg, var(--bg), var(--bg-2));
-  transition: background 220ms ease, color 220ms ease;
+  transition:
+    background 220ms ease,
+    color 220ms ease;
 }
 
 a {
@@ -166,8 +176,16 @@ h3 {
   justify-content: center;
   gap: 26px;
   background:
-    radial-gradient(circle at 18% 20%, color-mix(in srgb, var(--accent-2) 38%, transparent), transparent 42%),
-    radial-gradient(circle at 82% 80%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 48%),
+    radial-gradient(
+      circle at 18% 20%,
+      color-mix(in srgb, var(--accent-2) 38%, transparent),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 82% 80%,
+      color-mix(in srgb, var(--accent) 45%, transparent),
+      transparent 48%
+    ),
     linear-gradient(160deg, var(--hero-overlay-a), var(--hero-overlay-b));
   color: var(--hero-text);
 }
@@ -390,8 +408,11 @@ h3 {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 50%;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--accent) 72%, #ffffff), var(--accent-2));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--accent) 72%, #ffffff),
+    var(--accent-2)
+  );
   color: #ffffff;
   box-shadow: 0 10px 24px rgba(51, 39, 32, 0.14);
   font-family: "Bitter", Georgia, serif;
@@ -1082,6 +1103,8 @@ h3 {
 .connection-panel {
   display: grid;
   gap: 26px;
+  width: 100%;
+  max-width: 100%;
 }
 
 .connection-panel .panel-header {
@@ -1089,7 +1112,11 @@ h3 {
 }
 
 .connection-panel .connection-grid {
+  display: grid;
   gap: 26px;
+  width: 100%;
+  grid-template-columns: 1fr;
+  grid-auto-flow: row;
 }
 
 .connection-panel .soft-block {
@@ -1458,7 +1485,7 @@ h3 {
 
 @media (min-width: 1181px) and (max-width: 1300px) {
   #connection .connection-panel.compact-panel {
-    max-width: none;
+    max-width: 100%;
   }
 
   #connection .connection-panel .connection-grid {
@@ -1468,6 +1495,7 @@ h3 {
 
   #connection .connection-panel .soft-block {
     align-content: start;
+    min-width: 0;
   }
 }
 

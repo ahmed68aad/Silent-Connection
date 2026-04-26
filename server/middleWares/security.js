@@ -2,15 +2,24 @@ const allowedOrigins = [
   process.env.CLIENT_ORIGIN,
   process.env.CLIENT_URL,
   process.env.CORS_ORIGIN,
-  "https://silent-connection-fgt3.vercel.app",
   "http://localhost:5173",
+  "http://127.0.0.1:5173",
 ].filter(Boolean);
+
+const isLocalOrigin = (origin) => {
+  try {
+    const { hostname } = new URL(origin);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+};
 
 const corsOptions = {
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
 
-    if (allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
+    if (allowedOrigins.includes(origin) || isLocalOrigin(origin)) {
       return callback(null, true);
     }
 
@@ -32,12 +41,4 @@ const securityHeaders = (req, res, next) => {
   next();
 };
 
-const corsDebug = (req, res) => {
-  res.json({
-    success: true,
-    requestOrigin: req.get("origin") || null,
-    allowedOrigins,
-  });
-};
-
-export { corsDebug, corsOptions, securityHeaders };
+export { corsOptions, securityHeaders };

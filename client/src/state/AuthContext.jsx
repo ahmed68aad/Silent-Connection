@@ -53,7 +53,10 @@ export function AuthProvider({ children }) {
 
     const bootstrap = async () => {
       try {
-        const [meData, coupleData] = await Promise.all([getMe(token), getCoupleStatus(token)]);
+        const [meData, coupleData] = await Promise.all([
+          getMe(token),
+          getCoupleStatus(token),
+        ]);
         setUser(meData.user);
         setCouple(coupleData);
         if (coupleData.connected) {
@@ -78,7 +81,10 @@ export function AuthProvider({ children }) {
       return;
     }
 
-    const [meData, coupleData] = await Promise.all([getMe(token), getCoupleStatus(token)]);
+    const [meData, coupleData] = await Promise.all([
+      getMe(token),
+      getCoupleStatus(token),
+    ]);
     setUser(meData.user);
     setCouple(coupleData);
     if (coupleData.connected) {
@@ -99,7 +105,12 @@ export function AuthProvider({ children }) {
     setGroups(data.groups);
   };
 
-  const loadFeed = async ({ page = 1, append = false, feedType = "couple", groupId = "" } = {}) => {
+  const loadFeed = async ({
+    page = 1,
+    append = false,
+    feedType = "couple",
+    groupId = "",
+  } = {}) => {
     if (!token) {
       return;
     }
@@ -180,6 +191,10 @@ export function AuthProvider({ children }) {
       return data;
     },
     createPost: async (formData, options = {}) => {
+      if (!couple?.connected) {
+        throw new Error("Connect your partner before posting.");
+      }
+
       const data = await uploadPost(token, formData);
       await loadFeed({
         page: 1,

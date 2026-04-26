@@ -14,43 +14,19 @@ function getSessionId() {
   return sessionId;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, "") || "";
-
-function resolveBaseUrl() {
-  if (typeof window === "undefined") return API_BASE_URL;
-
-  const currentOrigin = window.location.origin;
-  const isVercelFrontend = currentOrigin.endsWith(".vercel.app");
-
-  if (isVercelFrontend) {
-    return currentOrigin;
-  }
-
-  if (!API_BASE_URL) return currentOrigin;
-
-  return API_BASE_URL;
-}
-
 async function request(path, options = {}) {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
 
-  const baseUrl = resolveBaseUrl();
-
-  const url = path.startsWith("http")
-    ? path
-    : baseUrl.endsWith("/api") && normalizedPath.startsWith("/api")
-      ? `${baseUrl}${normalizedPath.slice(4)}`
-      : `${baseUrl}${normalizedPath}`;
+  const url = path.startsWith("http") ? path : normalizedPath;
 
   let response;
 
   try {
     response = await fetch(url, options);
   } catch (networkError) {
-    throw new Error(
-      "Could not reach the API. Check backend URL and deployment.",
-      { cause: networkError },
-    );
+    throw new Error("Could not reach the API. Make sure the backend is running.", {
+      cause: networkError,
+    });
   }
 
   const responseText = await response.text().catch(() => "");
@@ -65,14 +41,8 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok || data.success === false) {
-    const isVercelProtection =
-      response.status === 403 &&
-      /Vercel Security Checkpoint|Deployment Protection/i.test(responseText);
-
     const error = new Error(
-      isVercelProtection
-        ? "Vercel Deployment Protection is blocking the API."
-        : data.message || `API request failed with status ${response.status}`,
+      data.message || `API request failed with status ${response.status}`,
     );
 
     error.code = data.code;

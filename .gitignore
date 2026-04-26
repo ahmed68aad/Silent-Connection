@@ -24,6 +24,7 @@ pnpm-debug.log*
 .cache/
 .tmp/
 tmp/
+server/uploads/
 *.pid
 *.seed
 *.pid.lock

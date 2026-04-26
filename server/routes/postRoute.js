@@ -2,7 +2,6 @@ import express from "express";
 import upload from "../config/multer.js";
 import Post from "../models/postModel.js";
 import auth from "../middleWares/auth.js";
-import { hasCloudinaryConfig } from "../config/config.js";
 import Group from "../models/groupModel.js";
 import { uploadLimiter } from "../middleWares/rateLimit.js";
 
@@ -101,15 +100,19 @@ const ensurePostingAvailable = (req, res, next) => {
     });
   }
 
-  if (!hasCloudinaryConfig) {
-    return res.status(500).json({
-      success: false,
-      message:
-        "Cloudinary config is missing. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET to .env",
-    });
+  next();
+};
+
+const getUploadedImageUrl = (file) => {
+  if (file.filename) return `/uploads/posts/${file.filename}`;
+  if (file.path) return file.path;
+  if (file.buffer) {
+    return `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
   }
 
-  next();
+  const error = new Error("Uploaded image could not be read");
+  error.statusCode = 400;
+  throw error;
 };
 
 const getFeedScope = async (req) => {
@@ -239,7 +242,7 @@ PostRouter.post(
           .json({ success: false, message: "No image uploaded" });
       }
 
-      const imageUrl = req.file.path;
+      const imageUrl = getUploadedImageUrl(req.file);
       let group = null;
 
       if (audience === "group") {
@@ -288,7 +291,9 @@ PostRouter.post(
         post: newPost,
       });
     } catch (err) {
-      res.status(500).json({ success: false, message: err.message });
+      res
+        .status(err.statusCode || 500)
+        .json({ success: false, message: err.message });
     }
   },
 );

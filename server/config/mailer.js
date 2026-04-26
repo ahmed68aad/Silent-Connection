@@ -1,33 +1,20 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-const smtpConfig = {
-  host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT,
-  user: process.env.SMTP_USER,
-  pass: process.env.SMTP_PASS,
-  from: process.env.SMTP_FROM || `"Silent Connection" <${process.env.SMTP_USER}>`,
-};
+const resendApiKey = process.env.RESEND_API_KEY;
+const fromAddress =
+  process.env.RESEND_FROM ||
+  "Silent Connection <no-reply@silentconnection.app>";
 
-const getFromAddress = () => {
-  const match = String(smtpConfig.from).match(/<([^>]+)>/);
-  return match?.[1] || smtpConfig.from || smtpConfig.user;
-};
+const hasMailConfig = Boolean(resendApiKey && fromAddress);
 
-const hasMailConfig = Boolean(
-  smtpConfig.host && smtpConfig.port && smtpConfig.user && smtpConfig.pass && smtpConfig.from,
-);
+const resend = hasMailConfig ? new Resend(resendApiKey) : null;
 
-const transporter = hasMailConfig
-  ? nodemailer.createTransport({
-      host: smtpConfig.host,
-      port: Number(smtpConfig.port),
-      secure: Number(smtpConfig.port) === 465,
-      auth: {
-        user: smtpConfig.user,
-        pass: smtpConfig.pass,
-      },
-    })
-  : null;
+if (hasMailConfig) {
+  console.log("Resend email configured:", {
+    from: fromAddress,
+    provider: "Resend",
+  });
+}
 
 const escapeHtml = (value) =>
   String(value)
@@ -38,17 +25,18 @@ const escapeHtml = (value) =>
 
 export async function sendVerificationEmail({ to, name, verificationCode }) {
   if (!hasMailConfig) {
-    throw new Error("SMTP email is not configured");
+    const error = new Error("Email sending is not configured");
+    error.statusCode = 503;
+    error.publicMessage =
+      "Email sending is not configured. Add RESEND_API_KEY and RESEND_FROM to server/.env.";
+    throw error;
   }
 
   const safeName = escapeHtml(name);
   const safeCode = escapeHtml(verificationCode);
 
-  await transporter.sendMail({
-    from: {
-      name: "Silent Connection",
-      address: getFromAddress(),
-    },
+  await resend.emails.send({
+    from: fromAddress,
     to,
     subject: "Verify your Silent Connection email",
     text: `Hi ${name},\n\nUse this verification code to activate your Silent Connection account:\n${verificationCode}\n\nThis code expires in 15 minutes.`,

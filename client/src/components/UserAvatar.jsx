@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 const getInitials = (name = "", email = "") => {
   const source = name.trim() || email.trim();
 
@@ -16,12 +18,22 @@ const getInitials = (name = "", email = "") => {
 
 export default function UserAvatar({ user, size = "md", className = "" }) {
   const image = user?.profileImage;
+  const [imageFailed, setImageFailed] = useState(false);
   const label = user?.name || user?.email || "User";
   const classes = ["user-avatar", `user-avatar-${size}`, className].filter(Boolean).join(" ");
+  const showImage = image && !imageFailed;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [image]);
 
   return (
     <span className={classes} aria-label={label} title={label}>
-      {image ? <img src={image} alt="" /> : <span>{getInitials(user?.name, user?.email)}</span>}
+      {showImage ? (
+        <img src={image} alt="" onError={() => setImageFailed(true)} />
+      ) : (
+        <span>{getInitials(user?.name, user?.email)}</span>
+      )}
     </span>
   );
 }
