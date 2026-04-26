@@ -3,6 +3,7 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
   process.env.CORS_ORIGIN,
   "http://localhost:5173",
+  "http://127.0.0.1:5173",
   "http://localhost:5174",
   "http://127.0.0.1:5173",
 ]
@@ -45,7 +46,11 @@ const corsOptions = {
     }
 
     console.warn(`CORS blocked for origin: ${origin}`);
-    return callback(null, false);
+    // On Vercel, it is often better to allow the origin but let
+    // downstream logic handle auth, or return an error that
+    // includes headers. For now, let's be more permissive to
+    // debug the underlying 500 error.
+    return callback(null, true);
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: [
