@@ -54,6 +54,9 @@ app.get("/api/health", (req, res) => {
     success: true,
     status: "ok",
     database: mongoose.connection.name || null,
+    readyState: mongoose.connection.readyState,
+    mongoUriExists: Boolean(process.env.MONGO_URI),
+    nodeEnv: process.env.NODE_ENV,
   });
 });
 
