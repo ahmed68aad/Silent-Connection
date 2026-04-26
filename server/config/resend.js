@@ -11,7 +11,7 @@ const resend = hasMailConfig ? new Resend(resendApiKey) : null;
 
 if (hasMailConfig) {
   console.log("Resend email configured:", {
-    from: fromAddress,
+    from: fromAddress.trim(),
     provider: "Resend",
   });
 }
@@ -45,7 +45,7 @@ export async function sendVerificationEmail({ to, name, verificationCode }) {
 
     const result = await resend.emails.send({
       from: sender,
-      to: [recipient],
+      to: recipient,
       subject: "Verify your Silent Connection email",
       text: `Hi ${name},\n\nUse this verification code to activate your Silent Connection account:\n${verificationCode}\n\nThis code expires in 15 minutes.`,
       html: `

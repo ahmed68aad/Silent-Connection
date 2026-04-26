@@ -132,6 +132,14 @@ const queueVerificationEmail = async (user) => {
   user.emailVerificationExpiresAt = expiresAt;
   await user.save();
 
+  if (!hasMailConfig) {
+    const error = new Error("Email service is not configured");
+    error.statusCode = 503;
+    error.publicMessage =
+      "Verification emails are currently unavailable. Please contact support.";
+    throw error;
+  }
+
   try {
     await sendVerificationEmail({
       to: user.email,
