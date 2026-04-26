@@ -14,14 +14,17 @@ const isLocalOrigin = (origin) => {
   try {
     const { hostname } = new URL(origin);
     return (
-      hostname === "localhost" ||
-      hostname === "127.0.0.1" ||
-      hostname === "[::1]" ||
-      hostname === "::1"
+      hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1"
     );
   } catch {
     return false;
   }
+};
+
+const isVercelOrigin = (origin) => {
+  if (!origin) return false;
+  // Allows preview deployments from your Vercel project
+  return origin.endsWith(".vercel.app") || origin.endsWith(".vercel.dev");
 };
 
 const corsOptions = {
@@ -32,7 +35,8 @@ const corsOptions = {
 
     if (
       allowedOrigins.includes(normalizedOrigin) ||
-      isLocalOrigin(normalizedOrigin)
+      isLocalOrigin(normalizedOrigin) ||
+      isVercelOrigin(normalizedOrigin)
     ) {
       return callback(null, true);
     }

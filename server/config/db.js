@@ -15,7 +15,7 @@ const connectDB = async () => {
 
     const conn = await mongoose.connect(uri || DEFAULT_MONGO_URI, {
       dbName: DATABASE_NAME,
-      serverSelectionTimeoutMS: 5000, // Fail fast instead of hanging
+      serverSelectionTimeoutMS: 3000, // Fail within 3 seconds for serverless
     });
 
     console.log(
