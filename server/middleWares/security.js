@@ -1,30 +1,32 @@
 const parseOrigins = (val) => {
   if (!val) return [];
   return String(val)
-    .replace(/['"\s]/g, "") // Remove quotes and spaces
+    .replace(/['"\s]/g, "")
     .split(",")
     .map((origin) => origin.trim().toLowerCase().replace(/\/$/, ""))
     .filter(Boolean);
 };
 
 const getAllowedOrigins = () => {
-  const envOrigins = [
-    process.env.CLIENT_ORIGIN,
-    process.env.CLIENT_URL,
-    process.env.CORS_ORIGIN,
-  ].flatMap((val) => parseOrigins(val));
+  const origins = new Set();
 
-  return new Set([
-    ...envOrigins,
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:5174",
-  ]);
+  // Add from environment variables
+  [process.env.CLIENT_ORIGIN, process.env.CLIENT_URL, process.env.CORS_ORIGIN]
+    .flatMap(parseOrigins)
+    .forEach((o) => origins.add(o));
+
+  // Standard development origins
+  origins.add("http://localhost:5173");
+  origins.add("http://127.0.0.1:5173");
+  origins.add("http://localhost:5174");
+
+  return origins;
 };
 
 const isAllowedOrigin = (origin) => {
-  // Handle cases with no origin (mobile apps, Postman) or null origin string
   const rawOrigin = String(origin || "").trim();
+
+  // Allow server-to-server or tools like Postman (no origin)
   if (!rawOrigin || rawOrigin === "null") return true;
 
   const normalizedOrigin = rawOrigin.toLowerCase().replace(/\/$/, "");
@@ -59,19 +61,14 @@ const isAllowedOrigin = (origin) => {
 
 const corsOptions = {
   origin: (origin, callback) => {
-    const isAllowed = isAllowedOrigin(origin);
-    if (isAllowed) {
+    if (isAllowedOrigin(origin)) {
       return callback(null, true);
     }
 
-    // This log appears in Vercel Dashboard -> Logs
-    console.warn(
-      `[CORS REJECTED] Origin: "${origin}" | Host: ${origin ? new URL(origin).hostname : "none"}`,
-    );
+    console.warn(`[CORS REJECTED] Origin: "${origin}"`);
 
-    // Allow in non-production environments anyway
-    const shouldAllow = process.env.NODE_ENV !== "production";
-    return callback(null, shouldAllow);
+    // On Vercel, always return false if not matched to maintain security
+    return callback(null, false);
   },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: [
