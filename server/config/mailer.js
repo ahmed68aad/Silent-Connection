@@ -1,17 +1,34 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
-const resendApiKey = process.env.RESEND_API_KEY;
+const smtpHost = process.env.SMTP_HOST;
+const smtpPort = Number(process.env.SMTP_PORT || 587);
+const smtpSecure = String(process.env.SMTP_SECURE || "false") === "true";
+const smtpUser = process.env.SMTP_USER;
+const smtpPass = process.env.SMTP_PASS;
 const fromAddress =
-  process.env.RESEND_FROM || "Silent Connection <no-reply@localhost>";
+  process.env.SMTP_FROM ||
+  (smtpUser ? `Silent Connection <${smtpUser}>` : "");
 
-const hasMailConfig = Boolean(resendApiKey && fromAddress);
+const hasMailConfig = Boolean(smtpHost && smtpPort && smtpUser && smtpPass);
 
-const resend = hasMailConfig ? new Resend(resendApiKey) : null;
+const transporter = hasMailConfig
+  ? nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    })
+  : null;
 
 if (hasMailConfig) {
-  console.log("Resend email configured:", {
+  console.log("SMTP email configured:", {
     from: fromAddress,
-    provider: "Resend",
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
   });
 }
 
@@ -27,14 +44,14 @@ export async function sendVerificationEmail({ to, name, verificationCode }) {
     const error = new Error("Email sending is not configured");
     error.statusCode = 503;
     error.publicMessage =
-      "Email sending is not configured. Add RESEND_API_KEY and RESEND_FROM to server/.env.";
+      "Email sending is not configured. Add SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS to server/.env.";
     throw error;
   }
 
   const safeName = escapeHtml(name);
   const safeCode = escapeHtml(verificationCode);
 
-  await resend.emails.send({
+  await transporter.sendMail({
     from: fromAddress,
     to,
     subject: "Verify your Silent Connection email",

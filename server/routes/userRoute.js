@@ -5,7 +5,7 @@ import bcrypt from "bcrypt";
 import validator from "validator";
 import auth from "../middleWares/auth.js";
 import crypto from "crypto";
-import { hasMailConfig, sendVerificationEmail } from "../config/resend.js";
+import { hasMailConfig, sendVerificationEmail } from "../config/mailer.js";
 import connectDB from "../config/db.js";
 import mongoose from "mongoose";
 import { profileImageUpload } from "../config/multer.js";
@@ -170,7 +170,7 @@ const queueVerificationEmail = async (user) => {
     error.statusCode = error.statusCode || 502;
     error.publicMessage =
       error.publicMessage ||
-      "Could not send the verification email. Check your Resend configuration.";
+      "Could not send the verification email. Check your SMTP configuration.";
     throw error;
   }
 };
@@ -196,7 +196,7 @@ UserRouter.post("/register", async (request, response) => {
           return response.status(503).json({
             success: false,
             message:
-              "Email sending is not configured. Add RESEND_API_KEY and RESEND_FROM to server/.env.",
+              "Email sending is not configured. Add SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS to server/.env.",
           });
         }
 
@@ -235,7 +235,7 @@ UserRouter.post("/register", async (request, response) => {
       return response.status(503).json({
         success: false,
         message:
-          "Email sending is not configured. Add RESEND_API_KEY and RESEND_FROM to server/.env.",
+          "Email sending is not configured. Add SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS to server/.env.",
       });
     }
 
@@ -375,7 +375,7 @@ UserRouter.post("/resend-verification", async (request, response) => {
       return response.status(503).json({
         success: false,
         message:
-          "Email sending is not configured. Add RESEND_API_KEY and RESEND_FROM to server/.env.",
+          "Email sending is not configured. Add SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS to server/.env.",
       });
     }
 
