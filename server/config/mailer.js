@@ -5,6 +5,7 @@ const smtpPort = Number(process.env.SMTP_PORT || 587);
 const smtpSecure = String(process.env.SMTP_SECURE || "false") === "true";
 const smtpUser = process.env.SMTP_USER?.trim();
 const smtpPass = process.env.SMTP_PASS?.replace(/\s/g, "");
+const smtpTimeout = Number(process.env.SMTP_TIMEOUT_MS || 15000);
 const fromAddress =
   process.env.SMTP_FROM ||
   (smtpUser ? `Silent Connection <${smtpUser}>` : "");
@@ -20,6 +21,9 @@ const transporter = hasMailConfig
         user: smtpUser,
         pass: smtpPass,
       },
+      connectionTimeout: smtpTimeout,
+      greetingTimeout: smtpTimeout,
+      socketTimeout: smtpTimeout,
     })
   : null;
 
@@ -91,7 +95,9 @@ export async function sendVerificationEmail({ to, name, verificationCode }) {
     });
     error.statusCode = error.statusCode || 502;
     error.publicMessage =
-      "Could not send the verification email. Check your SMTP email and app password.";
+      error.code === "ETIMEDOUT"
+        ? "Could not connect to the SMTP server. Railway may be blocking outbound SMTP on this plan."
+        : "Could not send the verification email. Check your SMTP email and app password.";
     throw error;
   }
 }
