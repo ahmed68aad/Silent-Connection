@@ -4,8 +4,6 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import validator from "validator";
 import auth from "../middleWares/auth.js";
-import crypto from "crypto";
-import { hasMailConfig, sendVerificationEmail } from "../config/mailer.js";
 import connectDB from "../config/db.js";
 import mongoose from "mongoose";
 import { profileImageUpload } from "../config/multer.js";
@@ -36,8 +34,8 @@ const sanitizeUser = (user) => ({
   profileImage: user.profileImage || "",
   inviteCode: user.inviteCode,
   coupleId: user.coupleId,
-  emailVerified: user.emailVerified !== false,
-  emailVerifiedAt: user.emailVerifiedAt,
+  emailVerified: true,
+  emailVerifiedAt: user.emailVerifiedAt || user.createdAt,
   createdAt: user.createdAt,
 });
 
@@ -96,17 +94,6 @@ const findUserByEmail = async (email) => {
   }).select("+password");
 };
 
-const hashEmailVerificationCode = (code) =>
-  crypto.createHash("sha256").update(code).digest("hex");
-
-const createEmailVerificationCode = () => {
-  const code = crypto.randomInt(100000, 1000000).toString();
-  const codeHash = hashEmailVerificationCode(code);
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-
-  return { code, codeHash, expiresAt };
-};
-
 export const ensureDbConnected = async (request, response, next) => {
   try {
     // Always allow OPTIONS requests to pass through to the CORS middleware
@@ -142,48 +129,6 @@ UserRouter.use(
   ensureDbConnected,
 );
 
-const queueVerificationEmail = async (user) => {
-  const { code, codeHash, expiresAt } = createEmailVerificationCode();
-
-  console.log("[Auth] Queueing verification email", {
-    userId: user._id.toString(),
-    email: user.email,
-  });
-
-  user.emailVerificationCodeHash = codeHash;
-  user.emailVerificationExpiresAt = expiresAt;
-  await user.save();
-
-  if (!hasMailConfig) {
-    const error = new Error("Email service is not configured");
-    error.statusCode = 503;
-    error.publicMessage =
-      "Verification emails are currently unavailable. Please contact support.";
-    throw error;
-  }
-
-  try {
-    await sendVerificationEmail({
-      to: user.email,
-      name: user.name,
-      verificationCode: code,
-    });
-    console.log("[Auth] Verification email queued successfully", {
-      userId: user._id.toString(),
-      email: user.email,
-    });
-  } catch (error) {
-    user.emailVerificationCodeHash = null;
-    user.emailVerificationExpiresAt = null;
-    await user.save();
-    error.statusCode = error.statusCode || 502;
-    error.publicMessage =
-      error.publicMessage ||
-      "Could not send the verification email. Check your SMTP configuration.";
-    throw error;
-  }
-};
-
 UserRouter.post("/register", async (request, response) => {
   const { name, password, email } = request.body;
   try {
@@ -200,24 +145,6 @@ UserRouter.post("/register", async (request, response) => {
     // Check if the user exists
     const exist = await findUserByEmail(normalizedEmail);
     if (exist) {
-      if (exist.emailVerified === false) {
-        if (!hasMailConfig) {
-          return response.status(503).json({
-            success: false,
-            message:
-              "Email sending is not configured. Add SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS to server/.env.",
-          });
-        }
-
-        await queueVerificationEmail(exist);
-        return response.json({
-          success: true,
-          user: sanitizeUser(exist),
-          message:
-            "Account already exists. A new verification code has been sent.",
-        });
-      }
-
       return response.status(409).json({
         success: false,
         message: "User already exists",
@@ -240,14 +167,6 @@ UserRouter.post("/register", async (request, response) => {
       });
     }
 
-    if (!hasMailConfig) {
-      return response.status(503).json({
-        success: false,
-        message:
-          "Email sending is not configured. Add SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS to server/.env.",
-      });
-    }
-
     // Hashing user password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -258,24 +177,20 @@ UserRouter.post("/register", async (request, response) => {
       email: normalizedEmail,
       password: hashedPassword,
       inviteCode: await generateUniqueInviteCode(),
-      emailVerified: false,
-      emailVerifiedAt: null,
+      emailVerified: true,
+      emailVerifiedAt: new Date(),
+      emailVerificationCodeHash: null,
+      emailVerificationExpiresAt: null,
     });
 
     const user = await newUser.save();
-
-    try {
-      await queueVerificationEmail(user);
-    } catch (error) {
-      await User.deleteOne({ _id: user._id });
-      throw error;
-    }
+    const token = createToken(user._id.toString());
 
     return response.json({
       success: true,
+      token,
       user: sanitizeUser(user),
-      message:
-        "Account created. Enter the verification code sent to your email.",
+      message: "Account created.",
     });
   } catch (error) {
     console.log(error);
@@ -330,11 +245,11 @@ UserRouter.post("/login", async (request, response) => {
     }
 
     if (user.emailVerified === false) {
-      return response.status(403).json({
-        success: false,
-        code: "EMAIL_NOT_VERIFIED",
-        message: "Please verify your email before signing in",
-      });
+      user.emailVerified = true;
+      user.emailVerifiedAt = user.emailVerifiedAt || new Date();
+      user.emailVerificationCodeHash = null;
+      user.emailVerificationExpiresAt = null;
+      await user.save();
     }
 
     const token = createToken(user._id.toString());
@@ -369,38 +284,10 @@ UserRouter.post("/resend-verification", async (request, response) => {
       });
     }
 
-    const genericResponse = {
+    return response.json({
       success: true,
-      message: "If this account needs verification, a new code has been sent.",
-    };
-
-    const user = await findUserByEmail(normalizedEmail);
-
-    if (!user) {
-      console.log("[Auth] Resend verification skipped: user not found", {
-        email: normalizedEmail,
-      });
-      return response.json(genericResponse);
-    }
-
-    if (user.emailVerified) {
-      console.log("[Auth] Resend verification skipped: already verified", {
-        userId: user._id.toString(),
-        email: user.email,
-      });
-      return response.json(genericResponse);
-    }
-
-    if (!hasMailConfig) {
-      return response.status(503).json({
-        success: false,
-        message:
-          "Email sending is not configured. Add SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASS to server/.env.",
-      });
-    }
-
-    await queueVerificationEmail(user);
-    return response.json(genericResponse);
+      message: "Email verification is disabled.",
+    });
   } catch (error) {
     console.error("Resend verification error:", error);
     return response.status(error.statusCode || 500).json({
@@ -411,11 +298,10 @@ UserRouter.post("/resend-verification", async (request, response) => {
 });
 
 UserRouter.post("/verify-email", async (request, response) => {
-  const { email, code } = request.body;
+  const { email } = request.body;
 
   try {
     const normalizedEmail = normalizeEmail(email);
-    const normalizedCode = String(code || "").trim();
     if (!normalizedEmail || !validator.isEmail(normalizedEmail)) {
       return response.status(400).json({
         success: false,
@@ -423,28 +309,17 @@ UserRouter.post("/verify-email", async (request, response) => {
       });
     }
 
-    if (!/^\d{6}$/.test(normalizedCode)) {
-      return response.status(400).json({
-        success: false,
-        message: "Please enter the 6-digit verification code",
-      });
-    }
+    const user = await findUserByEmail(normalizedEmail);
 
-    const codeHash = hashEmailVerificationCode(normalizedCode);
-    const user = await User.findOne({
-      emailVerificationCodeHash: codeHash,
-      emailVerificationExpiresAt: { $gt: new Date() },
-    });
-
-    if (!user || user.email.toLowerCase() !== normalizedEmail) {
-      return response.status(400).json({
+    if (!user) {
+      return response.status(404).json({
         success: false,
-        message: "Verification code is invalid or expired",
+        message: "User does not exist",
       });
     }
 
     user.emailVerified = true;
-    user.emailVerifiedAt = new Date();
+    user.emailVerifiedAt = user.emailVerifiedAt || new Date();
     user.emailVerificationCodeHash = null;
     user.emailVerificationExpiresAt = null;
     await user.save();
@@ -455,7 +330,7 @@ UserRouter.post("/verify-email", async (request, response) => {
       success: true,
       token: authToken,
       user: sanitizeUser(user),
-      message: "Email verified successfully.",
+      message: "Email verification is disabled.",
     });
   } catch (error) {
     console.log(error);

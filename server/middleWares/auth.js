@@ -40,14 +40,6 @@ const authMiddleware = async (req, res, next) => {
       });
     }
 
-    if (user.emailVerified === false) {
-      return res.status(403).json({
-        success: false,
-        code: "EMAIL_NOT_VERIFIED",
-        message: "Please verify your email before continuing",
-      });
-    }
-
     req.user = user;
 
     next();

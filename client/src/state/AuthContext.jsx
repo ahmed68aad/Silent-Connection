@@ -13,11 +13,9 @@ import {
   leaveGroup,
   login,
   register,
-  resendVerification,
   transferGroupOwnership,
   updateProfileImage,
   uploadPost,
-  verifyEmail,
 } from "../lib/api";
 
 const AuthContext = createContext(null);
@@ -151,14 +149,6 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const finishEmailVerification = async (payload) => {
-    const data = await verifyEmail(payload);
-    localStorage.setItem(STORAGE_KEY, data.token);
-    setToken(data.token);
-    setUser(data.user);
-    return data;
-  };
-
   const value = {
     token,
     user,
@@ -169,10 +159,8 @@ export function AuthProvider({ children }) {
     bootstrapping,
     loadingFeed,
     signIn: (payload) => finishAuth(login, payload),
-    signUp: (payload) => register(payload),
+    signUp: (payload) => finishAuth(register, payload),
     signOut: () => setToken(null),
-    resendEmailVerification: (email) => resendVerification(email),
-    verifyEmailToken: finishEmailVerification,
     refreshSession,
     refreshGroups,
     loadFeed,

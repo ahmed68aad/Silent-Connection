@@ -109,22 +109,6 @@ export async function login(payload) {
   });
 }
 
-export async function resendVerification(email) {
-  return request("/users/resend-verification", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
-  });
-}
-
-export async function verifyEmail(payload) {
-  return request("/users/verify-email", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
 export async function getMe(token) {
   return request("/users/me", {
     headers: authHeaders(token),
