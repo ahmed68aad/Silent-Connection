@@ -145,6 +145,11 @@ UserRouter.use(
 const queueVerificationEmail = async (user) => {
   const { code, codeHash, expiresAt } = createEmailVerificationCode();
 
+  console.log("[Auth] Queueing verification email", {
+    userId: user._id.toString(),
+    email: user.email,
+  });
+
   user.emailVerificationCodeHash = codeHash;
   user.emailVerificationExpiresAt = expiresAt;
   await user.save();
@@ -162,6 +167,10 @@ const queueVerificationEmail = async (user) => {
       to: user.email,
       name: user.name,
       verificationCode: code,
+    });
+    console.log("[Auth] Verification email queued successfully", {
+      userId: user._id.toString(),
+      email: user.email,
     });
   } catch (error) {
     user.emailVerificationCodeHash = null;
@@ -367,7 +376,18 @@ UserRouter.post("/resend-verification", async (request, response) => {
 
     const user = await findUserByEmail(normalizedEmail);
 
-    if (!user || user.emailVerified) {
+    if (!user) {
+      console.log("[Auth] Resend verification skipped: user not found", {
+        email: normalizedEmail,
+      });
+      return response.json(genericResponse);
+    }
+
+    if (user.emailVerified) {
+      console.log("[Auth] Resend verification skipped: already verified", {
+        userId: user._id.toString(),
+        email: user.email,
+      });
       return response.json(genericResponse);
     }
 
@@ -382,10 +402,10 @@ UserRouter.post("/resend-verification", async (request, response) => {
     await queueVerificationEmail(user);
     return response.json(genericResponse);
   } catch (error) {
-    console.log(error);
-    return response.status(500).json({
+    console.error("Resend verification error:", error);
+    return response.status(error.statusCode || 500).json({
       success: false,
-      message: "Failed to resend verification email",
+      message: error.publicMessage || "Failed to resend verification email",
     });
   }
 });
