@@ -57,10 +57,19 @@ const createImageUpload = ({ fileSize, folder }) =>
     },
   });
 
+const createMemoryImageUpload = ({ fileSize }) =>
+  multer({
+    storage: multer.memoryStorage(),
+    fileFilter: imageFileFilter,
+    limits: {
+      fileSize,
+      files: 1,
+    },
+  });
+
 const upload = createImageUpload({ fileSize: 5 * 1024 * 1024, folder: "posts" });
-const profileImageUpload = createImageUpload({
+const profileImageUpload = createMemoryImageUpload({
   fileSize: 2 * 1024 * 1024,
-  folder: "profiles",
 });
 
 export default upload;
